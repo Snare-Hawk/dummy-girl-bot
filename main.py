@@ -32,14 +32,20 @@ async def on_reaction_add(reaction, user):
 
     # must check to see if reaction is the desired emoji
     if bot.starEmoji == reaction.emoji and bot.starLimit == reaction.count:
-        await sameChannel.send(f"\"{reaction.message.content}\" was the funny")
+        # await sameChannel.send(f"\"{reaction.message.content}\" was the funny")
+        await postInChannel(reaction.message)
 
-    # if type(reaction.emoji) == str:
-    #     await sameChannel.send("this is a unicode emoji")
-    # elif type(reaction.emoji) == discord.partial_emoji:
-    #     await sameChannel.send("what the fuck")
-    # else:
-    #     await sameChannel.send("this is a custom emoji")
+async def postInChannel(message):
+    """
+    message: discord.message
+    """
+    someUrl = "https://fallendeity.github.io/discord.py-masterclass/"
+    author = message.author # discord.Member
+    embed = discord.Embed()
+    embed.set_author(name=author.nick, url=someUrl, icon_url=author.guild_avatar)
+    embed.add_field(name="Message", value=message.content)
+    await message.channel.send(embed=embed)
+
 
 @bot.hybrid_command()
 async def channel(ctx: commands.Context, channel: discord.abc.GuildChannel, emoji: str):
@@ -127,12 +133,11 @@ async def invite(ctx: commands.Context) -> None:
     """
     await ctx.send(f"invite me to other servers: {invite}")
 
-
 @bot.hybrid_command()
 @commands.is_owner()
 async def sync(ctx: commands.Context) -> None:
     """sync commands"""
     synced = await ctx.bot.tree.sync()
-    await ctx.send(f"Synced {len(synced)} commands globally")
+    await ctx.send(f"synced {len(synced)} commands globally :3")
 
 bot.run(token)
