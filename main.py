@@ -1,10 +1,11 @@
 import discord
 from discord import app_commands
 from discord.ext import commands
+from discord import utils
 import random
 import os
+import re
 from dotenv import load_dotenv, dotenv_values
-
 
 load_dotenv()
 token = os.getenv("token")
@@ -14,11 +15,14 @@ intents.members = True
 intents.message_content = True
 intents.reactions = True
 
+# try discord.ext.commands.errors.MissingRequiredArgument
+
 bot = commands.Bot(command_prefix='?', intents=intents)
 
 # global variables
-bot.starEmoji = '⭐'
+bot.starEmoji = '👍'
 bot.starLimit = 1
+bot.starChannel = None
 invite = "https://discord.com/oauth2/authorize?client_id=1251546997132099654"
 
 @bot.event
@@ -28,27 +32,54 @@ async def on_ready():
 
 @bot.event
 async def on_reaction_add(reaction, user):
-    sameChannel = reaction.message.channel
-
+    # sameChannel = reaction.message.channel
+    
+    if bot.starChannel is None:
+        print("no channel setup")
+    # if  bot.starChannel is reaction.message.channel:
+    #     print("stop starring in the starboard channel fool")
+    #     return
     # must check to see if reaction is the desired emoji
     if bot.starEmoji == reaction.emoji and bot.starLimit == reaction.count:
         # await sameChannel.send(f"\"{reaction.message.content}\" was the funny")
-        await postInChannel(reaction.message)
+        await makeEmbed(reaction)
 
-async def postInChannel(message):
+async def makeEmbed(reaction):
     """
-    message: discord.message
+    message: discord.Message
     """
-    someUrl = "https://fallendeity.github.io/discord.py-masterclass/"
+
+    message = reaction.message
+
+    bot.starChannel = message.channel
+    # someUrl = "https://fallendeity.github.io/discord.py-masterclass/"
     author = message.author # discord.Member
-    embed = discord.Embed()
-    embed.set_author(name=author.nick, url=someUrl, icon_url=author.guild_avatar)
-    embed.add_field(name="Message", value=message.content)
-    await message.channel.send(embed=embed)
+    embed = discord.Embed(color=discord.Color.from_str("#00c900"), description=message.content)
+    embed.set_author(name=author.display_name, icon_url=author.display_avatar.url)
+
+
+    if message.attachments:
+        # print("message has attachments")
+        # print(message.attachments[0].content_type)
+        # print(re.match("image",message.attachments[0].content_type))
+        if re.search("image", message.attachments[0].content_type):
+            # print("message has image")
+            embed.set_image(url=message.attachments[0].url)
+            # embed.set_image(url=message.attachments[0].url)
+
+    # embed.add_field(name="Source", value=f"[jump to message]({message.jump_url})")
+    # formatting = "%m/%d/%Y %I:%M %p"
+    # embed.add_field(name="the jumper", value=f"[jump to message]({message.jump_url})")
+
+    # messageTime = message.created_at
+    # uniqueTime = utils.format_dt(messageTime, "t")
+    embed.set_footer(text=f"{message.created_at.strftime('%x %I:%M %p')}")
+    # embed.set_footer(text=f"{messageTime.strftime(f'%x {uniqueTime} %p')}")
+    await bot.starChannel.send(f"{bot.starEmoji} **{reaction.count}** {message.jump_url}", embed=embed)
 
 
 @bot.hybrid_command()
-async def channel(ctx: commands.Context, channel: discord.abc.GuildChannel, emoji: str):
+async def channel(ctx: commands.Context, channel: discord.abc.GuildChannel):
     """
     sets up starboard channel
     
@@ -60,8 +91,8 @@ async def channel(ctx: commands.Context, channel: discord.abc.GuildChannel, emoj
         the channel where dummy girl will post
 
     """
-    boardChannel = channel
-    await ctx.send(f"{channel.mention} set as the starboard channel!")
+    bot.starChannel = channel
+    await ctx.send(f"{bot.starChannel.mention} set as the starboard channel!")
 
 @bot.hybrid_command()
 async def emoji(ctx: commands.Context, emoji: str):
@@ -83,7 +114,6 @@ async def emoji(ctx: commands.Context, emoji: str):
             
             # fetch the emoji from the guild
             bot.starEmoji = discord.utils.get(ctx.guild.emojis, id=emoji_id)
-            await ctx.send(f"type of bot.starEmoji: {type(bot.starEmoji)}")
             
             if bot.starEmoji:
                 await ctx.send(f'{bot.starEmoji} set as emoji!')
