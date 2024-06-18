@@ -6,6 +6,7 @@ import random
 import os
 import re
 from dotenv import load_dotenv, dotenv_values
+import guildStuff
 
 load_dotenv()
 token = os.getenv("token")
@@ -15,43 +16,66 @@ intents.members = True
 intents.message_content = True
 intents.reactions = True
 
+"""
+TODO:
+[ ] make it so bot edits messages upon more stars
+[ ] figure out how to use a mosiac for multiple images (max of 4?)
+[ ] make quick setup command
+[ ] figure out database situation
+[ ] add help, source, and emoji/channel/limit checks command
+[ ] on addition of any new information, update json as we update dict
+[ ] PERMISSIONS
+"""
+
 # try discord.ext.commands.errors.MissingRequiredArgument
 
 bot = commands.Bot(command_prefix='?', intents=intents)
 
 # global variables
-bot.starEmoji = '👍'
-bot.starLimit = 1
-bot.starChannel = None
-invite = "https://discord.com/oauth2/authorize?client_id=1251546997132099654"
+bot.star_emoji = '👍'
+bot.star_limit = 1
+bot.star_channel = None
+
+botID = 1251546997132099654
+invite = f"https://discord.com/oauth2/authorize?client_id={botID}"
+
+guildDict = {}
 
 @bot.event
 async def on_ready():
+    bot.tree.sync()
     print(f'Logged in as {bot.user} (ID: {bot.user.id})')
     print('------')
+    guildDict = await guildStuff.guildInfo.getGuildList(bot)
+
+    print(guildDict)
+
+
+# get data from database
+# store guild info
 
 @bot.event
 async def on_reaction_add(reaction, user):
     # sameChannel = reaction.message.channel
     
-    if bot.starChannel is None:
+    if bot.star_channel is None:
         print("no channel setup")
-    # if  bot.starChannel is reaction.message.channel:
+    # if  bot.star_channel is reaction.message.channel:
     #     print("stop starring in the starboard channel fool")
     #     return
     # must check to see if reaction is the desired emoji
-    if bot.starEmoji == reaction.emoji and bot.starLimit == reaction.count:
+    if bot.star_emoji == reaction.emoji and bot.star_limit == reaction.count:
         # await sameChannel.send(f"\"{reaction.message.content}\" was the funny")
         await makeEmbed(reaction)
 
-async def makeEmbed(reaction):
+async def make_embed(reaction):
     """
     message: discord.Message
     """
 
     message = reaction.message
 
-    bot.starChannel = message.channel
+    bot.star_channel = message.channel
     # someUrl = "https://fallendeity.github.io/discord.py-masterclass/"
     author = message.author # discord.Member
     embed = discord.Embed(color=discord.Color.from_str("#00c900"), description=message.content)
@@ -75,8 +99,7 @@ async def makeEmbed(reaction):
     # uniqueTime = utils.format_dt(messageTime, "t")
     embed.set_footer(text=f"{message.created_at.strftime('%x %I:%M %p')}")
     # embed.set_footer(text=f"{messageTime.strftime(f'%x {uniqueTime} %p')}")
-    await bot.starChannel.send(f"{bot.starEmoji} **{reaction.count}** {message.jump_url}", embed=embed)
-
+    await bot.star_channel.send(f"{bot.star_emoji} **{reaction.count}** {message.jump_url}", embed=embed)
 
 @bot.hybrid_command()
 async def channel(ctx: commands.Context, channel: discord.abc.GuildChannel):
@@ -91,8 +114,8 @@ async def channel(ctx: commands.Context, channel: discord.abc.GuildChannel):
         the channel where dummy girl will post
 
     """
-    bot.starChannel = channel
-    await ctx.send(f"{bot.starChannel.mention} set as the starboard channel!")
+    bot.star_channel = channel
+    await ctx.send(f"{bot.star_channel.mention} set as the starboard channel!")
 
 @bot.hybrid_command()
 async def emoji(ctx: commands.Context, emoji: str):
@@ -113,10 +136,10 @@ async def emoji(ctx: commands.Context, emoji: str):
             emoji_id = int(emoji.split(':')[2][:-1])
             
             # fetch the emoji from the guild
-            bot.starEmoji = discord.utils.get(ctx.guild.emojis, id=emoji_id)
+            bot.star_emoji = discord.utils.get(ctx.guild.emojis, id=emoji_id)
             
-            if bot.starEmoji:
-                await ctx.send(f'{bot.starEmoji} set as emoji!')
+            if bot.star_emoji:
+                await ctx.send(f'{bot.star_emoji} set as emoji!')
             else:
                 await ctx.send("emoji not found or the bot does not have access to it")
     else:
@@ -134,8 +157,8 @@ async def limit(ctx: commands.Context, limit: int):
     limit: int
         minimum number of reactions on a message for it to be posted in the starboard channel
     """
-    bot.starLimit = limit
-    await ctx.send(f"{bot.starEmoji} limit set to {limit}!")
+    bot.star_limit = limit
+    await ctx.send(f"{bot.star_emoji} limit set to {limit}!")
 
 @bot.hybrid_command()
 async def echo(ctx: commands.Context, message: str):
@@ -169,5 +192,13 @@ async def sync(ctx: commands.Context) -> None:
     """sync commands"""
     synced = await ctx.bot.tree.sync()
     await ctx.send(f"synced {len(synced)} commands globally :3")
+
+@bot.hybrid_command()
+@commands.is_owner()
+async def shutdown(ctx: commands.Context):
+    print("logging out...")
+    await ctx.send("logging out...")
+    await ctx.bot.close()
+
 
 bot.run(token)
