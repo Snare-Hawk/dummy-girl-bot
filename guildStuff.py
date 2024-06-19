@@ -23,17 +23,19 @@ class guildInfo:
     guildList = {}
 
     def __init__(self, guildID, guildChannels, guildStarboard, guildEmoji, guildLimit):
-        guildID = {
-            "channels": guildChannels,
-            "starboard": guildStarboard,
-            "emoji": guildEmoji,
-            "limit": guildLimit
-        }
-        print(guildID)
-        self.guildList.update(guildID)
+        singleGuildInfo = {
+            f"{guildID}":{
+                "channels": guildChannels,
+                "starboard": guildStarboard,
+                "emoji": guildEmoji,
+                "limit": guildLimit
+                }
+            }
+
+        guildInfo.guildList.update(singleGuildInfo)
 
 
-    async def getGuildList(client):
+    async def getGuildList(bot):
         filePath = Path("guildList.json")
 
         if os.path.exists(filePath):
@@ -42,39 +44,18 @@ class guildInfo:
         # best case scenario, this function should only trigger once
         else: # if it doesn't exist
             # get info from guilds bot is in
-            # list of all the guilds bot is in 
-            guilds = [guild async for guild in client.fetch_guilds(limit=150)]
+            # list of all the guilds bot is in
+            for guild in bot.guilds:
+                textChannelIDs = [textChannel.id for textChannel in guild.text_channels]
+                guildInfo(guild.id, textChannelIDs, None, '👍', 1)
 
-            print(list(guilds))
+                # singleGuildInfo = guild.id
+                # singl 
 
-            for guild in guilds:
-                
-                guildInfo(guild.id, list(guild.channels), None, '👍', 1)
-                """WHEN INPUTTING A CHANNEL, IT MUST BE ITS ID OR THE JSON WILL ERROR"""
+                # WHEN INPUTTING A CHANNEL, IT MUST BE ITS ID OR THE JSON WILL ERROR
                 # guildInfo.guildList.update(guildEntry)
-
-            
             with open(filePath, 'w+', encoding="utf-8") as outfile: # create it, 
             # add info to dict, then dicttojson
                 # outfile.write(json.dumps(guildInfo.getGuildList, indent=4))
                 json.dump(guildInfo.guildList, outfile)
-
-        # print(guildInfo.guildList)
-        guildInfo.typeOf(guildInfo.guildList)
-
         return guildInfo.guildList
-
-    # temporary testing tfunctions
-    def disObjToID(channelList):
-        """
-        Parameters
-        ----------
-        channelList: list of discord.channel
-        """
-        channelIDs = []
-        for channel in channelList:
-            channelIDs.append(channel.id)
-        return channelIDs
-
-    def typeOf(whatever):
-        print(f"{type(whatever)}")

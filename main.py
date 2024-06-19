@@ -48,9 +48,6 @@ async def on_ready():
     print('------')
     guildDict = await guildStuff.guildInfo.getGuildList(bot)
 
-    print(guildDict)
-
-
 # get data from database
 # store guild info
 
