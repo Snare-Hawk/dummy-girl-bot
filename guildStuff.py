@@ -57,5 +57,13 @@ class guildInfo:
             with open(filePath, 'w+', encoding="utf-8") as outfile: # create it, 
             # add info to dict, then dicttojson
                 # outfile.write(json.dumps(guildInfo.getGuildList, indent=4))
-                json.dump(guildInfo.guildList, outfile)
+                json.dump(guildInfo.guildList, outfile, indent=4)
         return guildInfo.guildList
+            
+    async def updateDict(guildDict):
+        guildList = guildDict
+        filePath = Path("guildList.json")
+        with open(filePath, 'w+', encoding="utf-8") as outfile: # create it, 
+        # add info to dict, then dicttojson
+            # outfile.write(json.dumps(guildInfo.getGuildList, indent=4))
+            json.dump(guildInfo.guildList, outfile, indent=4)
