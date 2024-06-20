@@ -3,67 +3,47 @@ import json
 import os
 from pathlib import Path
 
-# to be put into a dict of dicts
-# to then be written to a json eventually
-class guildInfo:
-    """
-    holds required guild information
+"""
+holds required guild information
 
-    Variables
-    ---------
-    channels: list of discord.TextChannel objects
-        holds every channel that can be seen
-    starboard: discord.TextChannel
-        the starboard channel
-    emoji: str or discord.Emoji
-        emoji that is used for posts to go onto the starboard
-    limit: int
-        minimum number of reactions on a message for it to be posted to starboard
-    """
-    guildList = {}
+Variables
+---------
+channels: list of discord.TextChannel objects
+    holds every channel that can be seen
+starboard: discord.TextChannel
+    the starboard channel
+emoji: str or discord.Emoji
+    emoji that is used for posts to go onto the starboard
+limit: int
+    minimum number of reactions on a message for it to be posted to starboard
+"""
+guildList = {}
+filePath = Path("guildList.json")
 
-    def __init__(self, guildID, guildChannels, guildStarboard, guildEmoji, guildLimit):
-        singleGuildInfo = {
-            f"{guildID}":{
-                "channels": guildChannels,
-                "starboard": guildStarboard,
-                "emoji": guildEmoji,
-                "limit": guildLimit
-                }
+def __init__(guildID, guildChannels, guildStarboard, guildEmoji, guildLimit):
+    singleGuildInfo = {
+        f"{guildID}":{
+            "channels": guildChannels,
+            "starboard": guildStarboard,
+            "emoji": guildEmoji,
+            "limit": guildLimit
             }
+        }
 
-        guildInfo.guildList.update(singleGuildInfo)
+    guildList.update(singleGuildInfo)
 
-
-    async def getGuildList(bot):
-        filePath = Path("guildList.json")
-
-        if os.path.exists(filePath):
-            with open(filePath, 'r', encoding="utf-8") as file:
-                guildInfo.guildList = json.load(file)
-        # best case scenario, this function should only trigger once
-        else: # if it doesn't exist
-            # get info from guilds bot is in
-            # list of all the guilds bot is in
-            for guild in bot.guilds:
-                textChannelIDs = [textChannel.id for textChannel in guild.text_channels]
-                guildInfo(guild.id, textChannelIDs, None, '👍', 1)
-
-                # singleGuildInfo = guild.id
-                # singl 
-
-                # WHEN INPUTTING A CHANNEL, IT MUST BE ITS ID OR THE JSON WILL ERROR
-                # guildInfo.guildList.update(guildEntry)
-            with open(filePath, 'w+', encoding="utf-8") as outfile: # create it, 
-            # add info to dict, then dicttojson
-                # outfile.write(json.dumps(guildInfo.getGuildList, indent=4))
-                json.dump(guildInfo.guildList, outfile, indent=4)
-        return guildInfo.guildList
+def getGuildList(bot):
+    if os.path.exists(filePath):
+        with open(filePath, 'r', encoding="utf-8") as file:
+            guildList = json.load(file)
+    # best case scenario, this function should only trigger once
+    else: # if it doesn't exist get info from the guilds that the bot is in
+        for guild in bot.guilds: # list of all the guilds bot is in
+            textChannelIDs = [textChannel.id for textChannel in guild.text_channels]
+            __init__(guild.id, textChannelIDs, None, '👍', 1)
             
-    async def updateDict(guildDict):
-        guildList = guildDict
-        filePath = Path("guildList.json")
-        with open(filePath, 'w+', encoding="utf-8") as outfile: # create it, 
-        # add info to dict, then dicttojson
-            # outfile.write(json.dumps(guildInfo.getGuildList, indent=4))
-            json.dump(guildInfo.guildList, outfile, indent=4)
+        updateJSON()
+
+def updateJSON():
+    with open(filePath, 'w+', encoding="utf-8") as outfile:
+        json.dump(guildList, outfile, indent=4)
