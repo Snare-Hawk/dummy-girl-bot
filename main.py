@@ -2,9 +2,9 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 from discord import utils
-import random
 import os
 import re
+from emoji import is_emoji
 from dotenv import load_dotenv, dotenv_values
 import guildStuff
 
@@ -21,7 +21,8 @@ TODO:
 [ ] make it so bot edits messages upon more stars
 [ ] figure out how to use a mosiac for multiple images (max of 4?)
 [ ] make quick setup command
-[ ] figure out database situation
+[X] figure out database situation
+[X] configure database things for when it joins a new server
 [ ] add help, source, and emoji/channel/limit checks command
 [ ] on addition of any new information, update json as we update dict
 [ ] PERMISSIONS
@@ -31,48 +32,30 @@ TODO:
 
 bot = commands.Bot(command_prefix='?', intents=intents)
 
-# global variables
-bot.star_emoji = '👍'
-bot.star_limit = 1
-bot.star_channel = None
-
-botID = 1251546997132099654
-invite = f"https://discord.com/oauth2/authorize?client_id={botID}"
-
-guildDict = {}
-
 @bot.event
 async def on_ready():
     # await bot.tree.sync()
     print(f'Logged in as {bot.user} (ID: {bot.user.id})')
     print('------')
-    guildDict = await guildStuff.guildInfo.getGuildList(bot)
+    guildStuff.getGuildList(bot)
 
 # get data from database
 # store guild info
 
 @bot.event
 async def on_reaction_add(reaction, user):
-    # sameChannel = reaction.message.channel
+    currentGuildID = reaction.message.guild.id
+    starEmoji = guildStuff.guildList[f"{currentGuildID}"]["emoji"]
+    starLimit = guildStuff.guildList[f"{currentGuildID}"]["limit"]
 
-    guildDict = await guildStuff.guildInfo.getGuildList(bot=bot)
-    
-    daGuildID = reaction.message.guild.id
-    starEmoji = '👍'
-    starLimit = 1
-    starEmoji = guildDict[f"{daGuildID}"]["emoji"]
-    starLimit = guildDict[f"{daGuildID}"]["limit"]
-
-    # if bot.star_channel is None:
-    #     print("no channel setup")
-    # if  bot.star_channel is reaction.message.channel:
-    #     print("stop starring in the starboard channel fool")
-    #     return
-    # must check to see if reaction is the desired emoji
-
-    if starEmoji == reaction.emoji and starLimit == reaction.count:
-        # await sameChannel.send(f"\"{reaction.message.content}\" was the funny")
+    if starEmoji == str(reaction.emoji) and starLimit == reaction.count:
         await makeEmbed(reaction)
+
+@bot.event
+async def on_guild_join(guild):
+    textChannelIDs = [textChannel.id for textChannel in guild.text_channels]
+    guildStuff(guild.id, textChannelIDs, None, '👍', 1)
+    guildStuff.updateJSON()
 
 async def makeEmbed(reaction):
     """
@@ -81,15 +64,11 @@ async def makeEmbed(reaction):
 
     message = reaction.message
 
-    # bot.star_channel = message.channel
+    currentGuildID = reaction.message.guild.id
 
-    daGuildID = reaction.message.guild.id
-
-    guildDict = await guildStuff.guildInfo.getGuildList(bot=bot)
-    starboardChannel = bot.get_channel(guildDict[f"{daGuildID}"]["starboard"])
-
-    # await guildStuff.guildInfo.updateDict(guildDict)
-
+    starboardChannel = bot.get_channel(guildStuff.guildList[f"{currentGuildID}"]["starboard"])
+    starEmoji = guildStuff.guildList[f"{currentGuildID}"]["emoji"]
+    
     author = message.author # discord.Member
     embed = discord.Embed(color=discord.Color.from_str("#00c900"), description=message.content)
     embed.set_author(name=author.display_name, icon_url=author.display_avatar.url)
@@ -106,12 +85,21 @@ async def makeEmbed(reaction):
 
     if starboardChannel == None:
         starboardChannel = reaction.message.channel
-        await starboardChannel.send("there is no starboard channel set, so i'l just send it here :3")
+        await starboardChannel.send("there is no starboard channel set, so i'll just send it here :3")
 
-    await starboardChannel.send(f"{bot.star_emoji} **{reaction.count}** {message.jump_url}", embed=embed)
+    # TODO: if any message in the starboard channel has the same message jump_url, edit the message with different star count
 
-@bot.hybrid_command()
-async def channel(ctx: commands.Context, channel: discord.abc.GuildChannel):
+    await starboardChannel.send(f"{starEmoji} **{reaction.count}** {message.jump_url}", embed=embed)
+
+@bot.hybrid_group()
+async def set(ctx: commands.Context) -> None:
+    """
+    configure starboard
+    """
+    await ctx.send("guh!")
+
+@set.command(name="channel")
+async def channel(ctx: commands.Context, channel: discord.abc.GuildChannel or int) -> None:
     """
     sets up starboard channel
     
@@ -121,18 +109,18 @@ async def channel(ctx: commands.Context, channel: discord.abc.GuildChannel):
         the context of the command invocation
     channel: discord.abc.GuildChannel
         the channel where dummy girl will post
-
     """
-    # bot.star_channel = channel
-    guildDict = await guildStuff.guildInfo.getGuildList(bot=bot)
 
-    guildDict[f"{ctx.guild.id}"]["starboard"] = channel.id
+    # if channel is int:
+    #     guildStuff.guildList[f"{ctx.guild.id}"]["starboard"] = channel
 
-    await guildStuff.guildInfo.updateDict(guildDict)
+    guildStuff.guildList[f"{ctx.guild.id}"]["starboard"] = channel.id
+    guildStuff.updateJSON()
+
     await ctx.send(f"{channel.mention} set as the starboard channel!")
 
-@bot.hybrid_command()
-async def emoji(ctx: commands.Context, emoji: str):
+@set.command(name="emoji")
+async def emoji(ctx: commands.Context, emoji: str) -> None:
     """
     sets up starboard emoji
     
@@ -144,23 +132,31 @@ async def emoji(ctx: commands.Context, emoji: str):
         emoji that's used to determine when something goes on the starboard
 
     """
-    if emoji.startswith('<:') and emoji.endswith('>'):
+
+    if is_emoji(emoji):
+        guildStuff.guildList[f"{ctx.guild.id}"]["emoji"] = emoji
+        await ctx.send(f'{emoji} set as emoji!')
+    elif re.match(r'<a?:\w+:\d+>', emoji):
             # extract the emoji name and ID
-            emoji_name = emoji.split(':')[1]
-            emoji_id = int(emoji.split(':')[2][:-1])
+            emojiName = emoji.split(':')[1]
+            emojiID = int(emoji.split(':')[2][:-1])
             
-            # fetch the emoji from the guild
-            bot.star_emoji = discord.utils.get(ctx.guild.emojis, id=emoji_id)
+            # checks if the emoji is in the given guild
+            starEmoji = discord.utils.get(ctx.guild.emojis, id=emojiID)
             
-            if bot.star_emoji:
-                await ctx.send(f'{bot.star_emoji} set as emoji!')
+            if starEmoji:
+                guildStuff.guildList[f"{ctx.guild.id}"]["emoji"] = emoji
+                await ctx.send(f'{emoji} set as emoji!')
             else:
                 await ctx.send("emoji not found or the bot does not have access to it")
     else:
         await ctx.send("please input a proper emoji!")
+        return
+    
+    guildStuff.updateJSON()
 
-@bot.hybrid_command()
-async def limit(ctx: commands.Context, limit: int):
+@set.command(name="limit")
+async def limit(ctx: commands.Context, limit: int) -> None:
     """
     sets up how many emojis are required for a post in the starboard channel
     
@@ -171,13 +167,19 @@ async def limit(ctx: commands.Context, limit: int):
     limit: int
         minimum number of reactions on a message for it to be posted in the starboard channel
     """
-    guildDict = await guildStuff.guildInfo.getGuildList(bot=bot)
     
-    guildDict[f"{ctx.guild.id}"]["limit"] = limit
+    guildStuff.guildList[f"{ctx.guild.id}"]["limit"] = limit
+    guildStuff.updateJSON()
 
-    await guildStuff.guildInfo.updateDict(guildDict)
-    bot.star_limit = limit
-    await ctx.send(f"{bot.star_emoji} limit set to {limit}!")
+    await ctx.send(f"{"star emoji"} limit set to {limit}!")
+
+# @set.command(name="quicksetup")
+# async def quickSetup(ctx: commands.Context, channel: discord.abc.GuildChannel, emoji: str, limit: int):
+#     guh = channel.id
+#     await channel(ctx, guh)
+#     await emoji(ctx, emoji)
+#     await limit(ctx, limit)
+#     await ctx.channel.send("set up everything!")
 
 @bot.hybrid_command()
 async def echo(ctx: commands.Context, message: str):
@@ -187,23 +189,23 @@ async def echo(ctx: commands.Context, message: str):
     Parameters
     ----------
     ctx: commands.Context
-        The context of the command invocation
+        the context of the command invocation
     message: str
-        The message to echo
+        the message to echo
     """
     await ctx.send(message)
 
 @bot.hybrid_command()
 async def invite(ctx: commands.Context) -> None:
     """
-    sets up how many emojis are required for a post in the starboard channel
+    sends bot invite link
     
     Parameters
     ----------
     ctx: commands.Context
         the context of the command invocation
     """
-    await ctx.send(f"invite me to other servers: {invite}")
+    await ctx.send(f"invite me to other servers with [this link](https://discord.com/oauth2/authorize?client_id={bot.user.id}) :3")
 
 @bot.hybrid_command()
 @commands.is_owner()
@@ -218,6 +220,5 @@ async def shutdown(ctx: commands.Context):
     print("logging out...")
     await ctx.send("logging out...")
     await ctx.bot.close()
-
 
 bot.run(token)
